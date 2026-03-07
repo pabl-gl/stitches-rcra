@@ -1,7 +1,6 @@
 import clingo
 import sys
 
-### comprobar argumentos
 if len(sys.argv) != 4:
     print("Uso: python3 decode.py stitches.lp domXX.lp solXX.txt")
     sys.exit()
@@ -10,7 +9,6 @@ kb_file = sys.argv[1]
 domain_file = sys.argv[2]
 output_file = sys.argv[3]
 
-# cargar programa ASP
 ctl = clingo.Control()
 ctl.load(kb_file)
 ctl.load(domain_file)
@@ -20,7 +18,6 @@ stitches = set()
 n = None
 nummodels = 0
 
-# resolver
 with ctl.solve(yield_=True) as handle:
     for model in handle:
 
@@ -46,7 +43,7 @@ if nummodels == 0:
     print("UNSATISFIABLE")
     sys.exit()
 
-# construir grid
+# grid
 grid = [['.' for _ in range(n)] for _ in range(n)]
 
 for (x1,y1,x2,y2) in stitches:
@@ -57,7 +54,6 @@ for (x1,y1,x2,y2) in stitches:
         grid[x1][y1] = 'v'
         grid[x2][y2] = '^'
 
-# escribir archivo de salida
 with open(output_file, "w") as f:
     for row in grid:
         f.write("".join(row) + "\n")
