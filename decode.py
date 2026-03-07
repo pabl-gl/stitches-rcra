@@ -1,63 +1,65 @@
-# Pablo García López pablo.glopez@udc.es
-# Ansur Lopez Braña mail
-
+import clingo
 import sys
-import subprocess
 
-def decode(kb_file, domain_file, output_file):
-    # Ejecutar clingo y capturar la salida
-    result = subprocess.run(
-        ['clingo', kb_file, domain_file],
-        capture_output=True, text=True
-    )
+### comprobar argumentos
+if len(sys.argv) != 4:
+    print("Uso: python3 decode.py stitches.lp domXX.lp solXX.txt")
+    sys.exit()
 
-    # Leer los stitches de la salida
-    stitches = set()
-    n = None
-    for line in result.stdout.split('\n'):
-        # Buscar el Answer
-        if line.startswith('Answer:'):
-            continue
-        for token in line.split():
-            if token.startswith('stitch('):
-                # Parsear stitch(X1,Y1,X2,Y2)
-                coords = token[7:-1].split(',')
-                x1, y1, x2, y2 = int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])
-                stitches.add((x1, y1, x2, y2))
+kb_file = sys.argv[1]
+domain_file = sys.argv[2]
+output_file = sys.argv[3]
 
-    # Leer N del dominio
-    with open(domain_file, 'r') as f:
-        for line in f:
-            if line.startswith('gridsize('):
-                n = int(line.strip()[9:-2])
-                break
+# cargar programa ASP
+ctl = clingo.Control()
+ctl.load(kb_file)
+ctl.load(domain_file)
+ctl.ground([("base", [])])
 
-    if n is None:
-        print("Error: no se encontró gridsize en el dominio")
-        sys.exit(1)
+stitches = set()
+n = None
+nummodels = 0
 
-    # Construir la cuadrícula
-    grid = [['.' for _ in range(n)] for _ in range(n)]
+# resolver
+with ctl.solve(yield_=True) as handle:
+    for model in handle:
 
-    for (x1, y1, x2, y2) in stitches:
-        if x1 == x2:
-            # Puntada horizontal: misma fila, columnas consecutivas
-            grid[x1][y1] = '>'
-            grid[x2][y2] = '<'
-        else:
-            # Puntada vertical: misma columna, filas consecutivas
-            grid[x1][y1] = 'v'
-            grid[x2][y2] = '^'
+        if nummodels > 0:
+            print("Warning: more than 1 model")
+            break
 
-    # Escribir la solución
-    with open(output_file, 'w') as f:
-        for row in grid:
-            f.write(''.join(row) + '\n')
+        for atom in model.symbols(atoms=True):
 
-    print(f"Solución guardada en {output_file}")
+            if atom.name == "gridsize" and len(atom.arguments) == 1:
+                n = atom.arguments[0].number
 
-if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print("Uso: python3 decode.py stitches.lp domXX.lp solXX.txt")
-        sys.exit(1)
-    decode(sys.argv[1], sys.argv[2], sys.argv[3])
+            elif atom.name == "stitch" and len(atom.arguments) == 4:
+                x1 = atom.arguments[0].number
+                y1 = atom.arguments[1].number
+                x2 = atom.arguments[2].number
+                y2 = atom.arguments[3].number
+                stitches.add((x1,y1,x2,y2))
+
+        nummodels = 1
+
+if nummodels == 0:
+    print("UNSATISFIABLE")
+    sys.exit()
+
+# construir grid
+grid = [['.' for _ in range(n)] for _ in range(n)]
+
+for (x1,y1,x2,y2) in stitches:
+    if x1 == x2:
+        grid[x1][y1] = '>'
+        grid[x2][y2] = '<'
+    else:
+        grid[x1][y1] = 'v'
+        grid[x2][y2] = '^'
+
+# escribir archivo de salida
+with open(output_file, "w") as f:
+    for row in grid:
+        f.write("".join(row) + "\n")
+
+print(f"Solution written to {output_file}")
