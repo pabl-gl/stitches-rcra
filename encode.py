@@ -49,4 +49,4 @@ if __name__ == '__main__':
     input_file = sys.argv[1]
     output_file = sys.argv[2]
     encode(input_file, output_file)
-    print(f"Archivo ASP generado: {output_file}")
+    print(f"ASP file generated: {output_file}")
